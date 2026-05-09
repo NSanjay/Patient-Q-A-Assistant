@@ -1,2 +1,2 @@
 # Patient-Q-A-Assistant
-Patient Q&amp;A AI assistant
+Patient Q&amp;A AI assistant.
