@@ -16,6 +16,20 @@ export class ChatController {
     @Body('message') message: string,
     @Body('conversationHistory') conversationHistory: Array<{role: string, content: string}> = [],
   ) {
+    // Backend sanitization — strip disallowed chars, enforce length
+    const sanitized = (message ?? '')
+      .replace(/[^a-zA-Z0-9\s'&().,-?]/g, '')
+      .trim()
+      .slice(0, 200);
+
+    if (!sanitized.length) {
+      return {
+        answer: 'Please enter a valid question.',
+        citations: [],
+        confidence: 'Low',
+      };
+    }
+    
     const { cohort, sessionId, variant } = req.user;
     return this.chatService.handleMessage({
       message,

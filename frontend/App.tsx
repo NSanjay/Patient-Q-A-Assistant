@@ -197,7 +197,7 @@ export default function App() {
 
   // ── Chat Screen ─────────────────────────────────────────────────────────
   return (
-      <SafeAreaProvider>
+  <SafeAreaProvider>
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
@@ -230,13 +230,23 @@ export default function App() {
           <TextInput
             style={styles.input}
             value={input}
-            onChangeText={setInput}
+            maxLength={200}
+            onChangeText={(text) => {
+              // Strip disallowed characters
+              const sanitized = text.replace(/[^a-zA-Z0-9\s'&().,-?]/g, '');
+              setInput(sanitized);
+            }}
             placeholder="Ask about a patient..."
             placeholderTextColor="#9ca3af"
             multiline
             onSubmitEditing={sendMessage}
             editable={!loading}
           />
+          {input.length > 150 && (
+            <Text style={styles.charCount}>
+              {input.length}/200
+            </Text>
+          )}
           <TouchableOpacity
             style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]}
             onPress={sendMessage}
@@ -250,7 +260,7 @@ export default function App() {
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
-        </SafeAreaProvider>
+  </SafeAreaProvider>
   );
 }
 
@@ -316,6 +326,7 @@ const styles = StyleSheet.create({
   // Input
   inputRow: { flexDirection: 'row', padding: 12, gap: 8, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e5e7eb' },
   input: { flex: 1, backgroundColor: '#f3f4f6', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: '#111827', maxHeight: 100 },
+  charCount: { fontSize: 11, color: '#9ca3af', alignSelf: 'flex-end', paddingRight: 8 },
   sendBtn: { backgroundColor: '#2563eb', borderRadius: 12, paddingHorizontal: 18, justifyContent: 'center' },
   sendBtnDisabled: { backgroundColor: '#93c5fd' },
   sendBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },

@@ -27,6 +27,7 @@ export class PatientResolverService {
 
     // ── 2. Name match — try all word combinations from the query ─────────
     const nameMatches = await this.tryNameMatch(query, cohort);
+    if (nameMatches === 'cross_cohort') return { status: 'not_found' };
     if (nameMatches.length === 1) return { status: 'resolved', patients: nameMatches };
     if (nameMatches.length > 1) return this.clarify(nameMatches, 'Multiple patients match that name');
 
@@ -90,38 +91,34 @@ export class PatientResolverService {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  private async tryNameMatch(query: string, cohort: string): Promise<Patient[]> {
-    // Extract all words 3+ chars as candidate name tokens (preserve original casing)
+  private async tryNameMatch(query: string, cohort: string): Promise<Patient[] | 'cross_cohort'> {
     const words = query
       .replace(/[^a-zA-Z\s]/g, ' ')
       .split(/\s+/)
-      .filter(w => w.length >= 3);
+      .filter(w => w.length >= 3 && !this.isCommonWord(w));
 
     const seen = new Set<string>();
     const results: Patient[] = [];
 
-    // Try full query first
+    // Step 1: Cross-cohort check first (fail fast)
+    // If any word pair exists in the other cohort → stop entirely
+    for (let i = 0; i < words.length - 1; i++) {
+      const pair = `${words[i]} ${words[i + 1]}`;
+      const crossCohort = await this.patientsService.existsInOtherCohort(pair, cohort);
+      if (crossCohort) return 'cross_cohort';
+    }
+
+    // Step 2: Try full query
     const fullMatches = await this.patientsService.findByName(query, cohort);
     for (const p of fullMatches) {
       if (!seen.has(p.id)) { seen.add(p.id); results.push(p); }
     }
     if (results.length) return results;
 
-    // Try consecutive word pairs (first + last name)
+    // Step 3: Try consecutive word pairs within cohort
     for (let i = 0; i < words.length - 1; i++) {
       const pair = `${words[i]} ${words[i + 1]}`;
       const matches = await this.patientsService.findByName(pair, cohort);
-      for (const p of matches) {
-        if (!seen.has(p.id)) { seen.add(p.id); results.push(p); }
-      }
-    }
-    if (results.length) return results;
-
-    // Try individual words (single name like "Adolfo")
-    for (const word of words) {
-      // Skip common English words that aren't names
-      if (this.isCommonWord(word)) continue;
-      const matches = await this.patientsService.findByName(word, cohort);
       for (const p of matches) {
         if (!seen.has(p.id)) { seen.add(p.id); results.push(p); }
       }

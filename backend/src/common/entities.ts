@@ -70,6 +70,7 @@ export class PatientObservation {
   @PrimaryColumn('uuid') id: string;
   @Column('uuid') patient_id: string;
   @Column({ nullable: true }) method: string;
+  @Column({ nullable: true }) recorded_by: string;
   @Column({ nullable: true }) recorded_time: Date;
   @Column({ type: 'jsonb', nullable: true }) data: any;
 }
@@ -91,4 +92,10 @@ export class RequestLog {
   @Column({ default: false }) injection_detected: boolean;
   @Column({ nullable: true, type: 'text' }) injection_details: string;
   @Column({ default: false }) cohort_violation: boolean;
+  @Column({ type: 'jsonb', nullable: true }) tables_used: any;
+  @Column({ default: false }) inference_made: boolean;
+  @Column({ default: false }) fallback_triggered: boolean;
+  @Column({ nullable: true }) latency_ms: number;
 }
+// Note: RequestLog entity already defined above — 
+// run this to patch it after the file

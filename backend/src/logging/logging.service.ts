@@ -16,15 +16,19 @@ export class LoggingService {
     sessionId: string;
     variant: string;
     rawQuery: string;
-    resolvedPatientId?: string;
+    resolvedPatientId?: string | null;
     recordsRetrieved?: any;
     rawModelOutput?: string;
     answer?: string;
     citations?: any;
     confidence?: string;
     injectionDetected?: boolean;
-    injectionDetails?: string;
+    injectionDetails?: string | null;
     cohortViolation?: boolean;
+    tablesUsed?: string[];
+    inferenceMade?: boolean;
+    fallbackTriggered?: boolean;
+    latencyMs?: number;
   }) {
     try {
       const entry = new RequestLog();
@@ -42,6 +46,10 @@ export class LoggingService {
       entry.injection_detected = data.injectionDetected ?? false;
       entry.injection_details = data.injectionDetails ?? '';
       entry.cohort_violation = data.cohortViolation ?? false;
+      entry.tables_used = data.tablesUsed ?? [];
+      entry.inference_made = data.inferenceMade ?? false;
+      entry.fallback_triggered = data.fallbackTriggered ?? false;
+      entry.latency_ms = data.latencyMs ?? 0;
       await this.logRepo.save(entry);
     } catch (e) {
       console.error('Logging failed:', e.message);

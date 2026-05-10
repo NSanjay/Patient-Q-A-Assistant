@@ -18,6 +18,7 @@ export class AuthService {
     const sessionId = uuidv4();
     const lastChar = sessionId.replace(/-/g, '').slice(-1);
     const variant = parseInt(lastChar, 16) % 2 === 0 ? 'A' : 'B';
+    console.log(lastChar, variant)
     const payload: SessionPayload = { cohort, sessionId, variant };
     const token = this.jwtService.sign(payload);
     return { token, sessionId, variant };

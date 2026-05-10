@@ -4,25 +4,6 @@ import { AgentService } from './agent.service';
 import { LoggingService } from '../logging/logging.service';
 import { PatientsService } from '../patients/patients.service';
 
-const INJECTION_PATTERNS = [
-  /ignore\s+(previous|above|all|your)\s+instructions/i,
-  /forget\s+(everything|your|all)/i,
-  /you\s+are\s+now\s+a/i,
-  /pretend\s+(you|to)/i,
-  /reveal\s+(your\s+)?(system\s+)?prompt/i,
-  /show\s+me\s+(all\s+)?(other\s+)?patients/i,
-  /access\s+(group|cohort)\s+[ab]/i,
-  /switch\s+(to\s+)?(group|cohort)/i,
-  /what\s+patients\s+are\s+in\s+(group|cohort)/i,
-  /list\s+all\s+patients/i,
-  /override\s+(your\s+)?(system|instructions)/i,
-  /jailbreak/i,
-  /DAN/,
-  /as\s+an\s+AI\s+without\s+restrictions/i,
-  /print\s+(your\s+)?(system\s+)?prompt/i,
-  /what\s+is\s+your\s+(system\s+)?prompt/i,
-];
-
 const SAFE_FALLBACK = 'I cannot find a matching patient in your cohort, or I cannot answer this question based on the available records.';
 
 @Injectable()
@@ -43,14 +24,15 @@ export class ChatService {
   }) {
     const { message, cohort, sessionId, variant, conversationHistory } = input;
 
-    // ── 1. Injection detection ─────────────────────────────────────────────
-    const injectionMatch = INJECTION_PATTERNS.find(p => p.test(message));
-    if (injectionMatch) {
+    // ── 1. LLM Injection Classifier (before any DB access) ────────────────
+    console.log("before injection")
+    const injectionResult = await this.agent.classifyInjection(message);
+    if (injectionResult.isInjection) {
       await this.logger.log({
         cohort, sessionId, variant,
         rawQuery: message,
         injectionDetected: true,
-        injectionDetails: `Pattern matched: ${injectionMatch.toString()}`,
+        injectionDetails: injectionResult.reason,
         cohortViolation: false,
         answer: 'BLOCKED',
         confidence: 'Low',
@@ -58,6 +40,7 @@ export class ChatService {
         rawModelOutput: '',
         resolvedPatientId: '',
         recordsRetrieved: {},
+        fallbackTriggered: true,
       });
       return {
         answer: 'I cannot process that request.',
@@ -85,19 +68,20 @@ export class ChatService {
         rawQuery: message,
         injectionDetected: false,
         cohortViolation: false,
-        answer: 'Patient not found',
+        answer: SAFE_FALLBACK,
         confidence: 'Low',
         citations: [],
         rawModelOutput: '',
         resolvedPatientId: '',
         recordsRetrieved: {},
+        fallbackTriggered: true,
       });
       return { answer: SAFE_FALLBACK, citations: [], confidence: 'Low' };
     }
 
     const patient = resolved.patients[0];
 
-    // ── 3. Retrieve records (cohort-scoped) ────────────────────────────────
+    // ── 3. Retrieve all records (cohort-scoped) ────────────────────────────
     const records = await this.patients.getAllRecords(patient.id, cohort);
     if (!records) {
       await this.logger.log({
@@ -112,11 +96,12 @@ export class ChatService {
         rawModelOutput: '',
         resolvedPatientId: patient.id,
         recordsRetrieved: {},
+        fallbackTriggered: true,
       });
       return { answer: SAFE_FALLBACK, citations: [], confidence: 'Low' };
     }
 
-    // ── 4. Run LLM agent ───────────────────────────────────────────────────
+    // ── 4. Run LLM agent (injection classify + retrieval plan + answer) ────
     const agentOutput = await this.agent.run({
       query: message,
       patientContext: records,
@@ -124,36 +109,39 @@ export class ChatService {
       conversationHistory,
     });
 
-    // ── 5. Check if model detected injection ───────────────────────────────
-    const modelDetectedInjection = agentOutput.rawOutput.includes('INJECTION_DETECTED');
-
-    // ── 6. Log everything ──────────────────────────────────────────────────
+    // ── 5. Log everything ──────────────────────────────────────────────────
     await this.logger.log({
       cohort, sessionId, variant,
       rawQuery: message,
       resolvedPatientId: patient.id,
       recordsRetrieved: {
-        patient: { table: 'patient', id: patient.id },
-        allergies: records.allergies.map(a => ({ table: 'patient_allergy', id: a.id })),
-        conditions: records.conditions.map(c => ({ table: 'patient_condition', id: c.id })),
-        medications: records.medications.map(m => ({ table: 'patient_medication', id: m.id })),
-        observations: records.observations.map(o => ({ table: 'patient_observation', id: o.id })),
+        patient: records.patient,
+        allergies: records.allergies,
+        conditions: records.conditions,
+        medications: records.medications,
+        observations: records.observations,
       },
       rawModelOutput: agentOutput.rawOutput,
       answer: agentOutput.answer,
       citations: agentOutput.citations,
       confidence: agentOutput.confidence,
-      injectionDetected: modelDetectedInjection,
-      injectionDetails: modelDetectedInjection ? 'Detected by LLM' : '',
+      injectionDetected: agentOutput.injectionDetected,
+      injectionDetails: agentOutput.injectionReason ?? '',
       cohortViolation: false,
+      tablesUsed: agentOutput.tablesUsed,
+      inferenceMade: agentOutput.inferenceMade,
+      fallbackTriggered: agentOutput.fallbackTriggered,
+      latencyMs: agentOutput.latencyMs,
     });
 
     return {
-      answer: modelDetectedInjection ? 'I cannot process that request.' : agentOutput.answer,
+      answer: agentOutput.answer,
       citations: agentOutput.citations,
       confidence: agentOutput.confidence,
       patient: { id: patient.id, name: `${patient.name_first} ${patient.name_last}` },
       variant,
+      inferenceMade: agentOutput.inferenceMade,
+      tablesUsed: agentOutput.tablesUsed,
     };
   }
 }
