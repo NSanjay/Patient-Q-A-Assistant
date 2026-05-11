@@ -341,18 +341,3 @@ Conversation security was validated end-to-end by CV03: injection blocked mid-co
 2. Single-name queries may fail if name is ambiguous — recommend always using full name
 3. Inference self-reporting (`inferenceMade` flag) is unreliable — needs post-processing validation
 4. Conversation history capped at 6 turns — longer sessions lose early context
-
----
-## What I Would Improve With One Additional Day
-
-1. **Vector similarity search** — replace exact name matching with `pgvector` embeddings over patient summaries. Handles "the elderly lady with breathing problems" naturally, resolves single-name ambiguity, enables description-based lookup without hardcoded field matching.
-
-2. **text2SQL retrieval** — fine-tune SQLCoder or query AST builders on the schema (more than one day :-) ) on the schema. LLM generates parameterized SQL validated against a cohort-enforcement ruleset before execution. Fully auditable (the SQL is the citation), handles arbitrary query complexity including cohort-wide aggregations with appropriate access controls. Natural evolution of Variant A's retrieval planner.
-
-3. **Streaming responses** — Server-Sent Events for real-time token streaming. Reduces perceived latency for Variant B from 7.3 seconds to near-instant first token. Critical for clinical usability.
-
-4. **Conversation memory with summarization** — compress older turns via LLM summarization rather than truncating at 6 messages. Enables long diagnostic conversations without context window pressure or token exhaustion.
-
-5. **Confidence calibration** — compute confidence from model logprobs and corroborating record count rather than model self-reporting. Fixes the `inferenceMade` inconsistency and makes confidence a reliable signal for clinical staff.
-
-6. **Hallucination detector** — post-generation verification step that checks every claim in the answer against source records before returning to the user. Particularly important for Variant B's inference mode in production clinical settings.
