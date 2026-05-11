@@ -128,6 +128,12 @@ export class AgentService {
       const response = await this.fastLlm.invoke([
         new SystemMessage(`
   You are a query enricher for a healthcare assistant.
+  Return ONLY valid JSON.
+
+  Schema:
+  {
+    "enriched_query": string
+  }
   
   Your task:
   - Rewrite follow-up questions to include the patient's full name ONLY if the follow-up clearly refers to the same patient from recent conversation history.
@@ -135,8 +141,9 @@ export class AgentService {
   - ONLY resolve pronouns or implicit references like:
     "his", "her", "their", "she", "he", "the patient"
     - If the follow-up query already contains a person's name, preserve that exact name in the rewritten query and do NOT replace it with pronouns or generic references.
+  - "enriched_query" is the rewritten query with resolved patient references
   
-  DO NOT rewrite queries that:
+  DO NOT enrich queries that:
   - ask to identify or search for a patient
   - introduce a new condition, allergen, medication, or diagnosis search
   - contain phrases like:
@@ -144,7 +151,7 @@ export class AgentService {
   
   If no patient can be confidently inferred, return the original query unchanged.
   
-  Return ONLY the rewritten query.
+  Return ONLY the rewritten query. Do not include any extra reasoning.
         `),
 
         new HumanMessage(`
@@ -154,15 +161,41 @@ export class AgentService {
   Follow-up:
   ${query}
   
-  Rewritten query:
+  IMPORTANT: Output ONLY the rewritten query on a single line:
         `),
       ]);
+      const raw = String(response.content).trim();
+      const parsed = JSON.parse(raw);
 
-      const enriched = String(response.content).trim();
-      console.log(`query ${query}`);
-      console.log(`enriched ${enriched}`);
+      try {
+        const parsed = JSON.parse(raw);
 
-      return enriched || query;
+        const enriched = parsed?.enriched_query?.trim();
+
+        if (!enriched || typeof enriched !== "string") {
+          return query;
+        }
+        // safety check: reject explanations
+        const invalidPatterns = [
+          "based on",
+          "the rewritten query would",
+          "here is",
+          "sure",
+          "explanation"
+        ];
+        const lower = enriched.toLowerCase();
+        console.log(`query: ${query}`);
+        console.log(`enriched: ${enriched}`);
+
+        if (invalidPatterns.some(p => lower.includes(p))) {
+          return query;
+        }
+
+        return enriched;
+      } catch (err) {
+        // If model breaks format, fail safely
+        return query;
+      }
     } catch {
       return query;
     }
