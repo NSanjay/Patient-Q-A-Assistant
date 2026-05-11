@@ -21,49 +21,31 @@
 ### Variant Assignment
 Deterministic per session: last hex digit of session UUID — even → Variant A, odd → Variant B.
 
+### Retrieval Strategy Differences
+
+Beyond the main agent prompt, the variants also differ in how they select which database tables to fetch per query:
+
+**Variant A — Conservative Retrieval**
+- When uncertain, includes the table rather than excludes it
+- Always fetches `patient` table regardless of query type
+- Prefers over-fetching to risk missing relevant context
+- Results in larger LLM context but higher confidence answers when data exists
+
+**Variant B — Aggressive Pruning**
+- Fetches only tables directly needed for the query
+- Example: "What are Adolfo's vitals?" → fetches only `patient` + `patient_observation`, skips conditions/medications/allergies
+- Results in smaller LLM context, faster responses, lower token consumption
+- Risk: may miss relevant context (e.g. a medication causing an abnormal vital)
+
+**Retrieval Planner Implementation:**
+Both variants use `llama-3.1-8b-instant` as the retrieval planner — a fast, cheap model that decides table selection before the main agent runs. The planner is given table metadata (description + useful-for fields) and the user query, then returns a list of relevant tables. The variant instruction changes the planner's disposition:
+
 ### Key Architectural Differentiators
 Beyond prompt differences, the variants differ at the model reasoning level:
 - Variant A uses `reasoningEffort: 'low'` — minimal internal reasoning, fast responses
 - Variant B uses `reasoningEffort: 'medium'` — deeper reasoning budget for inference and chain-of-thought
 
 **Model selection rationale:** `openai/gpt-oss-120b` was chosen over `gpt-oss-20b` and `llama-3.3-70b-versatile` after comparative testing. Despite the larger parameter count, `gpt-oss-120b` showed no measurable latency increase over `20b` on Groq's inference infrastructure (both ~2,800ms avg for Variant A), while producing higher quality clinical answers and more reliable structured JSON output. `qwen/qwen3-32b` was evaluated but discarded due to thinking token overhead causing per-minute rate limit exhaustion during eval runs.
-
----
-
-## Security Architecture
-
-### Layered Injection Defense
-1. **Input sanitization** — character allowlist (alphanumeric + `'&().,-?`), 200 char max, enforced on both frontend and backend
-2. **Regex pre-filter** — catches known patterns (ignore instructions, list all patients, DAN, etc.) before any LLM call
-3. **LLM classifier** (`llama-3.1-8b-instant`) — semantic classification catches social engineering, role impersonation, and novel attacks before any DB access
-4. **Main agent prompt hardening** — explicit rules against embedded instructions with `INJECTION_DETECTED` signal
-5. **Safe fallback uniformity** — all blocked/failed requests return identical message, preventing information leakage through error differentiation
-
-### Cohort Isolation
-1. **JWT binding** — cohort locked in signed HS256 token at session creation, never sourced from request body
-2. **Cohort-scoped SQL** — every query includes `WHERE "group" = :cohort` derived from JWT payload, not user input
-3. **Cross-cohort existence check** — `existsInOtherCohort()` runs before any resolution attempt; if patient name found in other cohort, stops immediately and returns safe fallback
-4. **Double verification** — `getAllRecords()` re-verifies patient belongs to cohort before returning any data, even after successful resolution
-5. **Confidence-nuanced fallback** — cross-cohort detection returns High confidence fallback (certain why denied), not-found returns Medium, schema gap returns Low
-
-### Patient Resolution Priority Chain
-1. UUID match (direct ID in query)
-2. Cross-cohort existence check on word pairs → halt if found in other group
-3. Exact full name match, cohort-scoped (`=` not `ILIKE`)
-4. Word pair matching, cohort-scoped
-5. Room + bed match
-6. Unit match (East/West Tower)
-7. Medication description/generic name match
-8. Condition ICD-10 description match
-9. Allergen match
-10. Demographics combination (gender + ethnicity)
-
-**Critical fix applied during eval:** Initial implementation used `ILIKE '%term%'` substring matching which caused "Shea" to match "Shearer" — returning Erna Shearer (Group A) when querying Shea Killian (Group B) from a Group A session. This was a patient resolution accuracy bug (wrong patient within correct cohort), not a cohort isolation breach. Fixed by replacing with exact `= term` matching and adding the cross-cohort existence pre-check.
-
-### Multi-Turn Conversation Security
-- Fallback answers are excluded from conversation history passed to subsequent turns
-- `enrichWithHistory` pronoun resolver explicitly refuses to inherit context for cohort-wide search queries ("which patient", "who has", "patients with")
-- Injection detection runs on every turn independently — mid-conversation injections are blocked without corrupting conversation state (validated by CV03)
 
 ---
 
