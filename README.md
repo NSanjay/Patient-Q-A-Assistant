@@ -245,16 +245,24 @@ Every request logs the following to the `request_log` table:
 
 ---
 
-## What I Would Improve With One Additional Day
+## What I Would Improve With One Additional Day (Various possibilities)
 
-1. **Vector similarity search** - replace SQL name matching with `pgvector` embeddings over patient summaries. Handles "the elderly lady with breathing problems" without exact field matches.
+1. **Semantic schema retrieval & metadata catalog** – instead of exposing raw tables directly to the LLM, introduce a schema catalog containing table descriptions, column semantics, relationships, and sensitivity levels. Retrieval over this metadata would allow the system to scale to thousands of tables while remaining explainable and auditable.
 
-2. **text2SQL retrieval** - fine-tune a model like SQLCoder or query AST builders on the schema (more than one day :-) ). The LLM generates a parameterized SQL query validated against a cohort-enforcement ruleset before execution. Fully auditable, handles arbitrary query complexity.
+2. **AST-based query planning** – replace heuristic table selection with a structured query planner that builds an intermediate query AST (Abstract Syntax Tree). This avoids brittle hardcoded templates and safely supports dynamic joins, filters, aggregations, and multi-table retrieval at scale.
 
-3. **Streaming responses** - Server-Sent Events for real-time token streaming. Dramatically improves perceived latency for long answers.
+3. **Vector similarity search** – replace strict SQL field matching with `pgvector` embeddings over patient summaries and schema metadata. This enables fuzzy clinical retrieval such as “the elderly lady with breathing problems” without exact identifier matches.
 
-4. **Conversation memory & context summarization** - currently we pass the last 6 messages raw. Also the records context passed to the LLM can be large. A summarization step would compress older turns and enable much longer coherent conversations.
+4. **text2SQL / constrained query generation** – fine-tune a model such as SQLCoder or use constrained SQL generation over the schema catalog. Generated queries would remain parameterized and validated against authorization and cohort-enforcement rules before execution.
 
-5. **Confidence calibration** - use model logprobs and source record count to compute confidence mathematically and weighing it with the model's reported confidence level.
+5. **Fine-grained authorization & row-level security** – move beyond prompt-level filtering into deterministic access controls at the database layer, including row-level permissions, cohort isolation, audit trails, and column-level PHI restrictions.
 
-6. **Hallucination detector** - a post-generation step that verifies every claim in the answer against the source records before returning to the user.
+6. **Streaming responses** – use Server-Sent Events or WebSockets for incremental token streaming. This significantly improves perceived responsiveness for longer clinical summaries and explanations.
+
+7. **Conversation memory & hierarchical summarization** – replace the current fixed-window chat history with progressive conversation summarization and context compression. This would support longer multi-turn clinical sessions while reducing token usage. (This would be the most impactful for the current implementation)
+
+8. **Confidence calibration** – combine model confidence, retrieval coverage, source agreement, and record counts into a calibrated confidence score rather than relying solely on the LLM’s self-reported certainty.
+
+9. **Hallucination and factuality verification** – add a post-generation verification layer that checks every generated clinical claim against retrieved source records before returning the response.
+
+10. **Hybrid retrieval orchestration** – combine deterministic filters (patient ID, room, cohort) with semantic retrieval for unstructured clinical language. This balances precision, safety, and recall in hospital workflows.
