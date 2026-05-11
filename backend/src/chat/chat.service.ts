@@ -39,7 +39,6 @@ export class ChatService {
         fallbackTriggered: true,
       }
     // ── 1. LLM Injection Classifier (before any DB access) ────────────────
-    console.log("before injection")
     const injectionResult = await this.agent.classifyInjection(message);
     if (injectionResult.isInjection) {
       await this.logger.log({

@@ -6,11 +6,10 @@ async function bootstrap() {
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',')
     : ['http://localhost:8081'];
-  console.log('CORS origins:', allowedOrigins);
   app.enableCors({
     origin: allowedOrigins,
   });
   await app.listen(process.env.PORT ?? 3000);
-  console.log(`Backend running on http://localhost:3000`);
+  console.log(`Backend running`);
 }
 bootstrap();

@@ -83,7 +83,12 @@ export class PatientResolverService {
     }
 
     // ── 8. Demographics ──────────────────────────────────────────────────
-    const gender = q.includes('female') ? 'female' : q.includes(' male') ? 'male' : null;
+    const gender =
+    /\b(female|woman|women)\b/i.test(q)
+      ? 'female'
+      : /\b(male|man|men)\b/i.test(q)
+        ? 'male'
+        : null;
     const ethnicity = q.includes('hispanic') ? 'hispanic'
       : q.includes('black') ? 'black'
       : q.includes('white') ? 'white'

@@ -38,6 +38,7 @@ export class PatientsService {
     const query = this.patientRepo.createQueryBuilder('p')
       .where('p.group = :cohort', { cohort });
 
+    console.log("parts:",parts);
     if (parts.length >= 2) {
       // Full name: exact word match on both first and last
       query.andWhere(

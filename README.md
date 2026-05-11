@@ -4,7 +4,7 @@ An AI-powered clinical assistant that allows healthcare staff to query patient r
 
 ## Deployment
 - FrontEnd: https://patient-q-a-assistant.vercel.app/
-- Backend: https://patient-qa-backend.railway.app
+- Backend: https://patient-q-a-assistant-backend.up.railway.app
 ---
 
 ## Architecture Overview
@@ -222,6 +222,17 @@ Every request logs the following to the `request_log` table:
 
 ---
 
+## Usage Notes
+
+- **Patient queries should include both first and last name** for accurate resolution
+  (e.g. "What are Adolfo Ricker's vitals?" not "What are Adolfo's vitals?")
+  Single-name queries may resolve incorrectly if multiple patients share the name.
+- **Cohort-wide searches are not supported** — queries like "which patients have diabetes"
+  or "list all patients in Bed A" are out of scope. The system resolves one patient per query
+  by design to minimize data exposure.
+- **Follow-up questions using pronouns** ("he", "she", "their") are supported within
+  a conversation session, provided a patient was identified in a prior turn.
+
 ## What I Would Improve With One Additional Day
 
 1. **Vector similarity search** — replace SQL `ILIKE` name matching with `pgvector` embeddings over patient summaries. Handles "the elderly lady with breathing problems" without exact field matches.
@@ -230,7 +241,7 @@ Every request logs the following to the `request_log` table:
 
 3. **Streaming responses** — Server-Sent Events for real-time token streaming. Dramatically improves perceived latency for long answers.
 
-4. **Conversation memory with summarization** — currently we pass the last 6 messages raw. A summarization step would compress older turns and enable much longer coherent conversations.
+4. **Conversation memory & context summarization** — currently we pass the last 6 messages raw. Also the records context passed to the LLM can be large. A summarization step would compress older turns and enable much longer coherent conversations.
 
 5. **Confidence calibration** — use model logprobs and source record count to compute confidence mathematically rather than relying on the LLM to self-report it.
 
