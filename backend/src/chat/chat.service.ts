@@ -4,7 +4,8 @@ import { AgentService } from './agent.service';
 import { LoggingService } from '../logging/logging.service';
 import { PatientsService } from '../patients/patients.service';
 
-const SAFE_FALLBACK = 'I cannot find a matching patient in your cohort, or I cannot answer this question based on the available records.';
+import * as CONSTANTS from '../common/constants';
+
 
 @Injectable()
 export class ChatService {
@@ -24,6 +25,19 @@ export class ChatService {
   }) {
     const { message, cohort, sessionId, variant, conversationHistory } = input;
 
+    const baseLog = {
+        cohort, sessionId, variant,
+        rawQuery: message,
+        injectionDetected: false,
+        cohortViolation: false,
+        answer: CONSTANTS.SAFE_FALLBACK_ANSWER,
+        confidence: 'Low',
+        citations: [],
+        rawModelOutput: '',
+        resolvedPatientId: '',
+        recordsRetrieved: {},
+        fallbackTriggered: true,
+      }
     // ── 1. LLM Injection Classifier (before any DB access) ────────────────
     console.log("before injection")
     const injectionResult = await this.agent.classifyInjection(message);
@@ -43,7 +57,7 @@ export class ChatService {
         fallbackTriggered: true,
       });
       return {
-        answer: 'I cannot process that request.',
+        answer: CONSTANTS.INJECTION_FALLBACK_ANSWER,
         citations: [],
         confidence: 'Low',
         injectionDetected: true,
@@ -51,7 +65,11 @@ export class ChatService {
     }
 
     // ── 2. Resolve patient ─────────────────────────────────────────────────
-    const resolved = await this.resolver.resolve(message, cohort);
+    const enrichedMessage = await this.agent.enrichWithHistory(message, conversationHistory);
+    const resolved = await this.resolver.resolve(enrichedMessage, cohort);
+    const rawAndEnrichedMessage = enrichedMessage !== message
+      ? `${message} [enriched: ${enrichedMessage}]`
+      : message
 
     if (resolved.status === 'clarification_needed') {
       return {
@@ -61,22 +79,14 @@ export class ChatService {
         clarificationNeeded: true,
       };
     }
+    if (resolved.status === 'cross_cohort') {
+      await this.logger.log({ ...baseLog, confidence: 'High', fallbackTriggered: true });
+      return { answer: CONSTANTS.SAFE_FALLBACK_ANSWER, citations: [], confidence: 'High' };
+    }
 
     if (resolved.status === 'not_found' || !resolved.patients?.length) {
-      await this.logger.log({
-        cohort, sessionId, variant,
-        rawQuery: message,
-        injectionDetected: false,
-        cohortViolation: false,
-        answer: SAFE_FALLBACK,
-        confidence: 'Low',
-        citations: [],
-        rawModelOutput: '',
-        resolvedPatientId: '',
-        recordsRetrieved: {},
-        fallbackTriggered: true,
-      });
-      return { answer: SAFE_FALLBACK, citations: [], confidence: 'Low' };
+      await this.logger.log({ ...baseLog, confidence: 'Medium', fallbackTriggered: true });
+      return { answer: CONSTANTS.SAFE_FALLBACK_ANSWER, citations: [], confidence: 'Medium' };
     }
 
     const patient = resolved.patients[0];
@@ -86,7 +96,7 @@ export class ChatService {
     if (!records) {
       await this.logger.log({
         cohort, sessionId, variant,
-        rawQuery: message,
+        rawQuery: rawAndEnrichedMessage,
         injectionDetected: false,
         cohortViolation: true,
         injectionDetails: `Attempted access to patient ${patient.id} outside cohort ${cohort}`,
@@ -98,12 +108,12 @@ export class ChatService {
         recordsRetrieved: {},
         fallbackTriggered: true,
       });
-      return { answer: SAFE_FALLBACK, citations: [], confidence: 'Low' };
+      return { answer: CONSTANTS.SAFE_FALLBACK_ANSWER, citations: [], confidence: 'Low' };
     }
 
     // ── 4. Run LLM agent (injection classify + retrieval plan + answer) ────
     const agentOutput = await this.agent.run({
-      query: message,
+      query: enrichedMessage,
       patientContext: records,
       variant,
       conversationHistory,
@@ -112,7 +122,7 @@ export class ChatService {
     // ── 5. Log everything ──────────────────────────────────────────────────
     await this.logger.log({
       cohort, sessionId, variant,
-      rawQuery: message,
+      rawQuery: rawAndEnrichedMessage,
       resolvedPatientId: patient.id,
       recordsRetrieved: {
         patient: records.patient,
