@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PatientsService } from '../patients/patients.service';
 import { Patient } from '../common/entities';
+import {KNOWN_MEDICATIONS, CONDITION_TERMS, COMMON_WORDS} from '../common/constants';
 
 export interface ResolverResult {
-  status: 'resolved' | 'clarification_needed' | 'not_found';
+  status: 'resolved' | 'clarification_needed' | 'not_found' | 'cross_cohort';
   patients?: Patient[];
   clarificationMessage?: string;
 }
@@ -27,7 +28,7 @@ export class PatientResolverService {
 
     // ── 2. Name match — try all word combinations from the query ─────────
     const nameMatches = await this.tryNameMatch(query, cohort);
-    if (nameMatches === 'cross_cohort') return { status: 'not_found' };
+    if (nameMatches === 'cross_cohort') return { status: 'cross_cohort' };
     if (nameMatches.length === 1) return { status: 'resolved', patients: nameMatches };
     if (nameMatches.length > 1) return this.clarify(nameMatches, 'Multiple patients match that name');
 
@@ -67,7 +68,14 @@ export class PatientResolverService {
     }
 
     // ── 7. Allergen match ────────────────────────────────────────────────
-    const allergenMatch = q.match(/allergic\s+to\s+([a-z\s]+?)(?:\s|$|,|\?)/i);
+    /*
+      "allergic to penicillin"
+      "allergy to latex"
+      "Which patient has Sulfur as an allergen?"
+    */
+    const allergenMatch = q.match(
+  /(?:allergic\s+to|allergy\s+to|has\s+)([a-z][a-z\s\-]+?)(?:\s+as\s+an?\s+allergen|\s|$|,|\?)/i
+    );
     if (allergenMatch) {
       const patients = await this.patientsService.findByAllergen(allergenMatch[1], cohort);
       if (patients.length === 1) return { status: 'resolved', patients };
@@ -128,39 +136,54 @@ export class PatientResolverService {
   }
 
   private isCommonWord(word: string): boolean {
-    const common = new Set([
-      'what', 'are', 'the', 'for', 'and', 'with', 'has', 'have',
-      'does', 'did', 'can', 'could', 'show', 'tell', 'give', 'get',
-      'list', 'find', 'which', 'who', 'how', 'when', 'where', 'why',
-      'patient', 'patients', 'condition', 'conditions', 'medication',
-      'medications', 'allergy', 'allergies', 'observation', 'observations',
-      'latest', 'recent', 'current', 'all', 'any', 'their', 'his', 'her',
-      'vitals', 'records', 'info', 'information', 'about', 'from',
-    ]);
-    return common.has(word.toLowerCase());
+    return COMMON_WORDS.has(word.toLowerCase());
   }
 
   private extractMedKeywords(query: string): string[] {
     const patterns = [
-      /(?:on|taking|prescribed|given)\s+([a-z]+(?:\s+[a-z]+)?)/gi,
-      /([a-z]+(?:pril|olol|artan|statin|pam|zam|pine|done|zole|mycin|cillin))\b/gi,
+      // Context-based extraction
+      // "Patient is taking metformin", "Prescribed lisinopril daily", "Started on atorvastatin calcium"
+      /(?:on|taking|prescribed|given|started on|discharged on)\s+([a-z][a-z0-9\-]*(?:\s+[a-z][a-z0-9\-]*){0,2})/gi,
+
+      // Common medication suffixes
+      // "lisinopril" -> pril, "metoprolol" -> olol, "losartan" -> artan, "atorvastatin" -> statin
+      /\b([a-z][a-z0-9\-]*(?:pril|olol|artan|statin|pam|pine|done|zole|mycin|cillin|formin|sone))\b/gi,
     ];
-    const keywords: string[] = [];
+
+    const keywords = new Set<string>();
+
+    // Regex extraction
     for (const pattern of patterns) {
       const matches = [...query.matchAll(pattern)];
-      keywords.push(...matches.map(m => m[1]));
+
+      for (const match of matches) {
+        const candidate = match[1]?.trim().toLowerCase();
+
+        if (!candidate) continue;
+
+        keywords.add(candidate);
+      }
     }
-    return keywords;
+
+    // Whitelist direct lookup
+    const tokens = query.toLowerCase().split(/\W+/);
+
+    for (const token of tokens) {
+      if (KNOWN_MEDICATIONS.has(token)) {
+        keywords.add(token);
+      }
+    }
+
+    return [...keywords];
   }
 
   private extractConditionKeywords(query: string): string[] {
-    const conditionTerms = [
-      'diabetes', 'diabetic', 'hypertension', 'heart failure', 'cardiac',
-      'kidney', 'renal', 'cancer', 'depression', 'anxiety', 'copd',
-      'asthma', 'stroke', 'dementia', 'alzheimer', 'pneumonia', 'sepsis',
-      'anemia', 'obesity', 'arthritis', 'fracture', 'infection',
-    ];
-    return conditionTerms.filter(term => query.includes(term));
+    const normalized = query.toLowerCase();
+
+    return CONDITION_TERMS.filter(term => {
+      const regex = new RegExp(`\\b${term}\\b`, 'i');
+      return regex.test(normalized);
+    });
   }
 
   private clarify(patients: Patient[], reason: string): ResolverResult {

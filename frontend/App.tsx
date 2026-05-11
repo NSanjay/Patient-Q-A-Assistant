@@ -7,6 +7,8 @@ import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import axios from 'axios';
 
 const API_URL = 'http://localhost:3000';
+const SAFE_FALLBACK = 'I cannot find a matching patient in your cohort, or I cannot answer this question based on the available records.';
+export const INJECTION_FALLBACK_ANSWER = 'I cannot process that request.';
 
 type Message = {
   id: string;
@@ -33,6 +35,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const flatListRef = useRef<FlatList>(null);
+  const [expandedCitations, setExpandedCitations] = useState<Record<string, number>>({});
 
   // ── Cohort Selection ────────────────────────────────────────────────────
   const selectCohort = async (cohort: 'A' | 'B') => {
@@ -64,7 +67,10 @@ export default function App() {
     };
 
     const history = messages
-      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .filter(m => (m.role === 'user' || m.role === 'assistant')
+      &&  !m.clarificationNeeded
+          && m.content !== SAFE_FALLBACK && m.content !== INJECTION_FALLBACK_ANSWER
+              && !m.injectionDetected)
       .map(m => ({ role: m.role, content: m.content }));
 
     setMessages(prev => [...prev, userMsg]);
@@ -112,6 +118,9 @@ export default function App() {
 
   // ── Render Message ──────────────────────────────────────────────────────
   const renderMessage = ({ item }: { item: Message }) => {
+    // Default to showing 5 citations
+    const visibleCount = expandedCitations[item.id] ?? 5;
+
     const isUser = item.role === 'user';
     return (
       <View style={[styles.messageRow, isUser ? styles.userRow : styles.assistantRow]}>
@@ -156,10 +165,43 @@ export default function App() {
           {item.citations && item.citations.length > 0 && (
             <View style={styles.citationsBlock}>
               <Text style={styles.citationsHeader}>Sources</Text>
-              {item.citations.slice(0, 5).map(renderCitation)}
-              {item.citations.length > 5 && (
-                <Text style={styles.moreCitations}>+{item.citations.length - 5} more sources</Text>
+
+              {item.citations
+                .slice(0, visibleCount)
+                .map(renderCitation)}
+
+              {/* Show MORE button */}
+              {visibleCount < item.citations.length && (
+                <TouchableOpacity
+                  onPress={() =>
+                    setExpandedCitations(prev => ({
+                      ...prev,
+                      [item.id]: visibleCount + 5,
+                    }))
+                  }
+                >
+                  <Text style={styles.moreCitations}>
+                    +{Math.min(5, item.citations.length - visibleCount)} more sources
+                  </Text>
+                </TouchableOpacity>
               )}
+
+              {/* Optional SHOW LESS button */}
+              {visibleCount >= item.citations.length &&
+                item.citations.length > 5 && (
+                  <TouchableOpacity
+                    onPress={() =>
+                      setExpandedCitations(prev => ({
+                        ...prev,
+                        [item.id]: 5,
+                      }))
+                    }
+                  >
+                    <Text style={styles.moreCitations}>
+                      Show less
+                    </Text>
+                  </TouchableOpacity>
+                )}
             </View>
           )}
         </View>
@@ -205,7 +247,7 @@ export default function App() {
           <Text style={styles.headerTitle}>Patient Q&A</Text>
           <Text style={styles.headerSub}>Group {session.cohort} · Variant {session.variant}</Text>
         </View>
-        <TouchableOpacity style={styles.switchBtn} onPress={() => { setSession(null); setMessages([]); }}>
+        <TouchableOpacity style={styles.switchBtn} onPress={() => { setSession(null); setMessages([]); setInput('')}}>
           <Text style={styles.switchBtnText}>Switch Cohort</Text>
         </TouchableOpacity>
       </View>
@@ -242,7 +284,7 @@ export default function App() {
             onSubmitEditing={sendMessage}
             editable={!loading}
           />
-          {input.length > 150 && (
+          {input.length >= 0 && (
             <Text style={styles.charCount}>
               {input.length}/200
             </Text>

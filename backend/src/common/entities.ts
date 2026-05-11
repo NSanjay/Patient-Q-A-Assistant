@@ -83,7 +83,7 @@ export class RequestLog {
   @Column({ nullable: true }) session_id: string;
   @Column({ nullable: true }) prompt_variant: string;
   @Column({ nullable: true }) raw_query: string;
-  @Column({ nullable: true, type: 'text' }) resolved_patient_id: string;
+  @Column({ nullable: true, type: 'text' }) resolved_patient_id: string | null;
   @Column({ type: 'jsonb', nullable: true }) records_retrieved: any;
   @Column({ nullable: true, type: 'text' }) raw_model_output: string;
   @Column({ nullable: true, type: 'text' }) answer: string;

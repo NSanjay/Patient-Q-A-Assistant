@@ -11,6 +11,12 @@ export class LoggingService {
     private logRepo: Repository<RequestLog>,
   ) {}
 
+  private safeUuid = (v?: string | null) => {
+    if (!v) return null;
+    if (v.trim() === "") return null;
+    return v;
+  };
+
   async log(data: {
     cohort: string;
     sessionId: string;
@@ -30,14 +36,14 @@ export class LoggingService {
     fallbackTriggered?: boolean;
     latencyMs?: number;
   }) {
+    const entry = new RequestLog();
     try {
-      const entry = new RequestLog();
       entry.id = uuidv4();
       entry.cohort = data.cohort;
       entry.session_id = data.sessionId;
       entry.prompt_variant = data.variant;
       entry.raw_query = data.rawQuery;
-      entry.resolved_patient_id = data.resolvedPatientId ?? '';
+      entry.resolved_patient_id = this.safeUuid(data.resolvedPatientId);
       entry.records_retrieved = data.recordsRetrieved ?? {};
       entry.raw_model_output = data.rawModelOutput ?? '';
       entry.answer = data.answer ?? '';

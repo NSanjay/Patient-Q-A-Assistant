@@ -26,10 +26,18 @@ export class ChatController {
       return {
         answer: 'Please enter a valid question.',
         citations: [],
-        confidence: 'Low',
+        confidence: 'High',
       };
     }
-    
+
+    if (sanitized.length > 200) {
+      return {
+        answer: 'Question MUST is limited to 200 characters.',
+        citations: [],
+        confidence: 'High',
+      };
+    }
+
     const { cohort, sessionId, variant } = req.user;
     return this.chatService.handleMessage({
       message,
