@@ -53,6 +53,9 @@ if (!patient) return null; // returns nothing if patient is in wrong cohort
 
 ### 3. Layered Injection Detection
 
+**Layer 0 — Input sanitization:**
+Character allowlist enforced on both frontend (TextInput) and backend (controller). Only alphanumeric + `'&().,-?` permitted. Max 200 characters. Strips injection scaffolding characters (`[]`, `{}`, `<>`, `;`, `=`, backticks) before any processing.
+
 **Layer 1 — Regex pre-filter (fast path):**
 Common injection patterns are matched before any LLM call:
 - `ignore previous instructions`
@@ -77,13 +80,14 @@ The main agent's system prompt includes explicit rules against following embedde
 
 **What this prevents:** Both known-pattern injections (regex) and novel semantic attacks (LLM classifier). Defense-in-depth means bypassing one layer still hits the next.
 
-### 4. Data Minimization via Retrieval Planner
+
+**Layer 4 - Data Minimization via Retrieval Planner**
 The LLM retrieval planner selects only the tables relevant to the query. This limits the data exposed to the LLM per request, reducing the risk of data leakage in model outputs.
 
-### 5. JSONB Field Explosion
+**Layer 5 - JSONB Field Explosion
 Raw JSONB blobs (observations, address) are exploded into typed fields before being passed to the LLM. This prevents the LLM from reasoning about or citing internal data structure details.
 
-### 6. Full Audit Logging
+**Layer 6 - Full Audit Logging**
 Every request is logged to `request_log` with:
 - The full patient context passed to the LLM
 - Raw model output (before parsing)
@@ -93,13 +97,17 @@ Every request is logged to `request_log` with:
 
 Cohort boundary violations are flagged as `cohort_violation: true` and treated as high-severity events in the log.
 
-### 7. Safe Fallback Response
+**Layer 7 - Safe Fallback Response**
 When patient resolution fails, injection is detected, or cohort violation occurs, the system always returns the same neutral message:
 
 > "I cannot find a matching patient in your cohort, or I cannot answer this question based on the available records."
 
 This prevents information leakage through error messages (e.g. "Patient found but access denied" would confirm a patient exists in another cohort).
 
+### 3b. Cohort Enumeration via Clarification
+When multiple patients match a query (e.g. "patient in room 219"), the system returns a clarification message listing matched patients. This could theoretically be used to enumerate cohort members via room/condition/medication queries.
+
+**Mitigation:** Clarification responses are capped at 3 named patients + "and N others". Queries that match too many patients (cohort-wide searches) fall through to safe fallback rather than listing all matches. Documented as a known limitation in README.
 ---
 
 ## Known Risks and Limitations
@@ -115,9 +123,11 @@ The regex injection patterns cover common known attacks but cannot cover all pos
 **Mitigation:** The LLM classifier is the primary injection defense. Regex is a fast pre-filter only.
 
 ### 3. Patient Resolution False Positives
-The name resolver uses `ILIKE` fuzzy matching. A common name like "John" could match multiple patients and trigger clarification, but an unusual name might match incorrectly.
+Early versions used `ILIKE '%term%'` substring matching which caused a confirmed bug: querying "Shea Killian" (Group B) from a Group A session matched "Shearer" via substring, returning Erna Shearer's (Group A) records — the wrong patient within the correct cohort. This was a patient resolution accuracy bug, not a cohort isolation breach, but it represents a data exposure risk.
 
-**Mitigation:** Cohort scoping at the SQL level ensures even a false positive can only surface patients within the authorized cohort.
+**Fix applied:** All name matching now uses exact `= term` matching. Additionally, `existsInOtherCohort()` runs before any resolution attempt — if the queried name is found in the other cohort, resolution halts immediately and returns safe fallback with High confidence (signalling the system is certain why it cannot answer).
+
+**Residual risk:** Queries with only a first name (e.g. "What are Bettyann's vitals?") are no longer resolved via single-word fallback, preventing first-name-only false matches. The system requires at least a word pair for name resolution. Users should always provide full name.
 
 ### 4. Context Window Exposure
 The full patient record (all 5 tables) is passed to the LLM for Variant A. While the LLM is instructed to answer only the question asked, it technically has access to all patient data in its context window.

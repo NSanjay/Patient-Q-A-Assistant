@@ -113,7 +113,7 @@ export class AgentService {
   ): Promise<string> {
     if (!history.length) return query;
 
-    // // Explicit patient references → don't rewrite
+    // // Explicit patient references → don't rewrite (Potential FPs)
     // const hasName = /[A-Z][a-z]+ [A-Z][a-z]+/.test(query);
     // const hasRoom = /room\s+\d+/i.test(query);
     //
