@@ -8,8 +8,11 @@ An AI-powered clinical assistant that allows healthcare staff to query patient r
 ---
 
 ## Screenshots
-- Login Screen: ![img.png](img.png)
-- Sample Conversation: ![img_1.png](img_1.png)
+- Login Screen: ![img_2.png](img_2.png)
+- Sample Conversation: ![img_6.png](img_6.png)
+- Injection Attempt: ![img_5.png](img_5.png)
+- Conversation & Pronoun Resolution: ![img_7.png](img_7.png)
+- Fallback Answer for Insufficient Context: ![img_8.png](img_8.png)
 
 ## Architecture Overview
 
