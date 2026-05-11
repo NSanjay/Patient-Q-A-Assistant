@@ -1,5 +1,6 @@
 import csv, json, psycopg2, re
 from datetime import datetime
+import os
 
 conn = psycopg2.connect(
     dbname=os.environ.get('DB_NAME', 'patientqa'),

@@ -2,6 +2,9 @@
 
 An AI-powered clinical assistant that allows healthcare staff to query patient records using natural language. Built as a production-minded prototype with strong emphasis on AI safety, retrieval grounding, cohort isolation, and observability.
 
+## Deployment
+- FrontEnd: https://patient-q-a-assistant.vercel.app/
+- Backend: https://patient-qa-backend.railway.app
 ---
 
 ## Architecture Overview

@@ -341,14 +341,14 @@ ${tableDescriptions}
       : this.buildVariantBPrompt();
 
     const formatRules = `
-    When returning clinical information (conditions, medications, diagnoses):
+    When returning MULTIPLE clinical information (conditions, medications, diagnoses):
 
     1. The SAME information must appear in BOTH:
        - the "answer" field (human-readable format):
-         - ALWAYS return as a bullet list.
+         - If multiple items exist, return as a bullet list.
          - NEVER use semicolons.
        - the "citations" field (as structured references)
-    2. The "answer" must be a complete, self-contained clinical summary and MUST include full lists.
+    2. The "answer" must be a complete, self-contained clinical summary and MUST include all relevant clinical items.
        - Every answer MUST begin with a one-sentence clinical introduction.
        - The introduction line is REQUIRED and must be present even if only one item exists.
     3. The "citations" field is for traceability only and must reference every item mentioned in the answer.
