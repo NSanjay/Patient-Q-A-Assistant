@@ -47,7 +47,7 @@ Groq API (LLM inference)
    b. LLM injection classifier screens for adversarial input (before any DB access)
       i. Returns with a Fallback answer if it detects injection.
       ii. Proceeds with the flow otherwise
-   c. SQL resolver identifies patient — cross-cohort existence check halts if wrong group
+   c. SQL resolver identifies patient - cross-cohort existence check halts if wrong group
    d. LLM retrieval planner selects relevant tables (variant-dependent)
    e. SQL fetches records scoped to verified patient + cohort
    f. Query enriched with conversation history for pronoun resolution
@@ -146,27 +146,27 @@ PORT=3000
 
 The system resolves which patient a query refers to using a strict priority chain. All queries use exact matching (`=` not `ILIKE`) to prevent substring false positives.
 
-1. **UUID match** — direct patient ID in query
-2. **Cross-cohort existence check** — if patient name exists in the other cohort, halt immediately and return safe fallback
-3. **Exact full name match** — both first and last name, cohort-scoped
-4. **Word pair matching** — consecutive word pairs from query, cohort-scoped
-5. **Room + bed match** — e.g. "patient in room 219 bed C"
-6. **Unit match** — e.g. "East Tower"
-7. **Medication match** — description or generic name, e.g. "patient on Mirtazapine"
-8. **Condition match** — ICD-10 description, e.g. "diabetic patient"
-9. **Allergen match** — e.g. "patient allergic to Sulfa"
-10. **Demographics** — gender + ethnicity combination
+1. **UUID match** - direct patient ID in query
+2. **Cross-cohort existence check** - if patient name exists in the other cohort, halt immediately and return safe fallback
+3. **Exact full name match** - both first and last name, cohort-scoped
+4. **Word pair matching** - consecutive word pairs from query, cohort-scoped
+5. **Room + bed match** - e.g. "patient in room 219 bed C"
+6. **Unit match** - e.g. "East Tower"
+7. **Medication match** - description or generic name, e.g. "patient on Mirtazapine"
+8. **Condition match** - ICD-10 description, e.g. "diabetic patient"
+9. **Allergen match** - e.g. "patient allergic to Sulfa"
+10. **Demographics** - gender + ethnicity combination
 
 If multiple patients match → system asks for clarification (capped at 3 named patients).
 If no match → safe fallback response.
 
-**Usage notes:**
 ## Usage Notes
 
 - **Always use full name** (first + last) for accurate patient resolution
-- **Cohort-wide searches are not supported** — "which patients have diabetes" or "list all patients in Bed A" return safe fallback by design
+- **Cohort-wide searches are not supported** - "which patients have diabetes" or "list all patients in Bed A" return safe fallback by design
 - **Follow-up pronouns** ("he", "she") work within a conversation session after a patient is identified
-- **Conversation history** is maintained for 6 turns; longer sessions may lose early context
+- **Conversation history is best-effort** - the system maintains context for up to 6 turns. Pronoun resolution ("he", "she") works when the prior turn successfully resolved and answered a patient query. It will not work after fallback responses, clarification requests, or injection blocks since these are excluded from history to prevent context poisoning. When in doubt, re-state the patient's full name.
+- **Pronoun follow-ups after unanswerable questions** may not resolve correctly. If the system returns a fallback ("I cannot answer..."), the next follow-up using "he/she/they" will lose patient context since fallback turns are excluded from conversation history. Re-state the patient's full name in the follow-up.
 
 ---
 
@@ -174,13 +174,13 @@ If no match → safe fallback response.
 
 Variant is assigned deterministically per session (last hex digit of session UUID: even → A, odd → B).
 
-| | Variant A — Careful Clinician | Variant B — Structured Reasoner |
-|---|---|---|
-| Retrieval | Conservative, over-fetches tables | Aggressive pruning, minimum tables |
+| | Variant A - Careful Clinician               | Variant B - Structured Reasoner                       |
+|---|---------------------------------------------|-------------------------------------------------------|
+| Retrieval | Conservative, over-fetches tables           | Aggressive pruning, minimum tables                    |
 | Insufficient data | Answers with available data, low confidence | Infers from supporting evidence, discloses explicitly |
-| Inference | Never | Allowed with citation, capped at Medium confidence |
-| Confidence | Strict — requires direct evidence for High | Derived from reasoning chain |
-| Citations | Inline with answer | Structured block |
+| Inference | Never                                       | Allowed with citation, capped at Medium confidence    |
+| Confidence | Strict - requires direct evidence for High  | Derived from reasoning chain                          |
+| Citations | Inline with answer                          | Structured block                                      |
 
 ---
 
@@ -247,14 +247,14 @@ Every request logs the following to the `request_log` table:
 
 ## What I Would Improve With One Additional Day
 
-1. **Vector similarity search** — replace SQL name matching with `pgvector` embeddings over patient summaries. Handles "the elderly lady with breathing problems" without exact field matches.
+1. **Vector similarity search** - replace SQL name matching with `pgvector` embeddings over patient summaries. Handles "the elderly lady with breathing problems" without exact field matches.
 
-2. **text2SQL retrieval** — fine-tune a model like SQLCoder or query AST builders on the schema (more than one day :-) ). The LLM generates a parameterized SQL query validated against a cohort-enforcement ruleset before execution. Fully auditable, handles arbitrary query complexity.
+2. **text2SQL retrieval** - fine-tune a model like SQLCoder or query AST builders on the schema (more than one day :-) ). The LLM generates a parameterized SQL query validated against a cohort-enforcement ruleset before execution. Fully auditable, handles arbitrary query complexity.
 
-3. **Streaming responses** — Server-Sent Events for real-time token streaming. Dramatically improves perceived latency for long answers.
+3. **Streaming responses** - Server-Sent Events for real-time token streaming. Dramatically improves perceived latency for long answers.
 
-4. **Conversation memory & context summarization** — currently we pass the last 6 messages raw. Also the records context passed to the LLM can be large. A summarization step would compress older turns and enable much longer coherent conversations.
+4. **Conversation memory & context summarization** - currently we pass the last 6 messages raw. Also the records context passed to the LLM can be large. A summarization step would compress older turns and enable much longer coherent conversations.
 
-5. **Confidence calibration** — use model logprobs and source record count to compute confidence mathematically and weighing it with the model's reported confidence level.
+5. **Confidence calibration** - use model logprobs and source record count to compute confidence mathematically and weighing it with the model's reported confidence level.
 
-6. **Hallucination detector** — a post-generation step that verifies every claim in the answer against the source records before returning to the user.
+6. **Hallucination detector** - a post-generation step that verifies every claim in the answer against the source records before returning to the user.
