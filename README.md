@@ -165,7 +165,7 @@ If no match → safe fallback response.
 - **Always use full name** (first + last) for accurate patient resolution
 - **Cohort-wide searches are not supported** - "which patients have diabetes" or "list all patients in Bed A" return safe fallback by design
 - **Follow-up pronouns** ("he", "she") work within a conversation session after a patient is identified
-- **Conversation history is best-effort** - the system maintains context for up to 6 turns. Pronoun resolution ("he", "she") works when the prior turn successfully resolved and answered a patient query. It will not work after fallback responses, clarification requests, or injection blocks since these are excluded from history to prevent context poisoning. When in doubt, re-state the patient's full name.
+- **Conversation history is best-effort** - the system maintains context for up to 6 turns. Pronoun resolution ("he", "she") works when the prior turn successfully resolved and answered a patient query. It will not work after fallback responses, clarification requests, or injection blocks since these are excluded from history to prevent context poisoning. When in doubt, re-state the patient's full name. 
 - **Pronoun follow-ups after unanswerable questions** may not resolve correctly. If the system returns a fallback ("I cannot answer..."), the next follow-up using "he/she/they" will lose patient context since fallback turns are excluded from conversation history. Re-state the patient's full name in the follow-up.
 
 ---

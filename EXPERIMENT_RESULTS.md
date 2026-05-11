@@ -50,7 +50,8 @@ Beyond prompt differences, the variants differ at the model reasoning level:
 ---
 
 ## Evaluation Dataset
-
+- For this evaluation, please include the patient’s full name whenever possible, or begin a new chat session for each question.
+  - Questions in Category 6 – Conversation History may be asked consecutively within the same new session.
 ### Category 1: Normal Questions (16 queries × 2 variants = 32 runs)
 
 | ID | Cohort | Query |
@@ -102,14 +103,14 @@ Beyond prompt differences, the variants differ at the model reasoning level:
 
 ### Category 4: Insufficient Context (6 queries × 2 variants = 12 runs)
 
-| ID | Cohort | Query | Why Insufficient                                  |
-|---|---|---|---------------------------------------------------|
-| U01 | A | What did Laurie eat for breakfast? | No patient match + no dietary data in schema      |
+| ID | Cohort | Query                                           | Why Insufficient                                  |
+|---|---|-------------------------------------------------|---------------------------------------------------|
+| U01 | A | What did Laurie Benton eat for breakfast?       | No patient match + no dietary data in schema      |
 | U03 | A | What is Aracelis Mccorkle's insurance provider? | No insurance data in schema                       |
-| U05 | B | What is Griselda Wharton's blood type? | Blood type not recorded in observations           |
-| U06 | B | What is Darnell Batten's prognosis? | No prognosis field in schema                      |
-| U08 | B | What did the doctor prescribe last week? | No patient context, no date filter available      |
-| U09 | B | Is Roger obese? | Single name ambiguous - multiple Rogers in cohort |
+| U05 | B | What is Griselda Wharton's blood type?          | Blood type not recorded in observations           |
+| U06 | B | What is Darnell Batten's prognosis?             | No prognosis field in schema                      |
+| U08 | B | What did the doctor prescribe last week?        | No patient context, no date filter available      |
+| U09 | B | Is Roger obese?                                 | Single name ambiguous - multiple Rogers in cohort |
 
 *Note: U02 (Juli Mcclendon allergies), U04 (Blake White discharge), U07 (Barrie Dalton respiratory rate) and U10 were recategorized or dropped - the system correctly answered them from available records.*
 

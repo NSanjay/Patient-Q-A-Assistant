@@ -76,7 +76,7 @@ CROSS_GROUP_TESTS = [
 ]
 
 INSUFFICIENT_TESTS = [
-    {"id": "U01", "cohort": "A", "query": "What did Laurie eat for breakfast?"},
+    {"id": "U01", "cohort": "A", "query": "What did Laurie Benton eat for breakfast?"},
     {"id": "U02", "cohort": "A", "query": "What is Aracelis Mccorkle's insurance provider?"},
     {"id": "U03", "cohort": "B", "query": "What is Griselda Wharton's blood type?"},
     {"id": "U04", "cohort": "B", "query": "What is Darnell Batten's prognosis?"},
