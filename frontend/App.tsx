@@ -7,6 +7,7 @@ import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import axios from 'axios';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+console.log("API_URL:", API_URL)
 const SAFE_FALLBACK = 'I cannot find a matching patient in your cohort, or I cannot answer this question based on the available records.';
 export const INJECTION_FALLBACK_ANSWER = 'I cannot process that request.';
 
