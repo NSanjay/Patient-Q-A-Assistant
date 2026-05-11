@@ -148,10 +148,12 @@ export class AgentService {
   - introduce a new condition, allergen, medication, or diagnosis search
   - contain phrases like:
     "which patient", "who has", "patients with", "find patient"
-  
-  If no patient can be confidently inferred, return the original query unchanged.
-  
-  Return ONLY the rewritten query. Do not include any extra reasoning.
+   
+  Rules:
+  - ALWAYS return JSON (never raw text)
+  - ALWAYS output "enriched_query"
+  - If no patient can be confidently inferred, copy the original query exactly into "enriched_query"
+  - Never add explanations or extra fields
         `),
 
         new HumanMessage(`
@@ -165,31 +167,35 @@ export class AgentService {
         `),
       ]);
       const raw = String(response.content).trim();
-      const parsed = JSON.parse(raw);
 
       try {
         const parsed = JSON.parse(raw);
 
         const enriched = parsed?.enriched_query?.trim();
+        console.log("raw_enriched:", raw);
 
         if (!enriched || typeof enriched !== "string") {
           return query;
         }
-        // safety check: reject explanations
-        const invalidPatterns = [
-          "based on",
-          "the rewritten query would",
-          "here is",
-          "sure",
-          "explanation"
-        ];
-        const lower = enriched.toLowerCase();
+        // safety check: reject explanations - FPs
+        // const invalidPatterns = [
+        //   "based on",
+        //   "the rewritten query would",
+        //   "here is",
+        //   "sure",
+        //   "explanation"
+        // ];
+        // const lower = enriched.toLowerCase();
+        // const isInvalid = invalidPatterns.some((p) =>
+        // new RegExp(`\\b${p}\\b`, "i").test(lower)
+        // );
+        //
+        // if (isInvalid) {
+        //   return query;
+        // }
+
         console.log(`query: ${query}`);
         console.log(`enriched: ${enriched}`);
-
-        if (invalidPatterns.some(p => lower.includes(p))) {
-          return query;
-        }
 
         return enriched;
       } catch (err) {

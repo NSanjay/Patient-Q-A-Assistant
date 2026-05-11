@@ -28,6 +28,7 @@ export class PatientResolverService {
 
     // ── 2. Name match — try all word combinations from the query ─────────
     const nameMatches = await this.tryNameMatch(query, cohort);
+    console.log("nameMatches:", nameMatches.length);
     if (nameMatches === 'cross_cohort') return { status: 'cross_cohort' };
     if (nameMatches.length === 1) return { status: 'resolved', patients: nameMatches };
     if (nameMatches.length > 1) return this.clarify(nameMatches, 'Multiple patients match that name');
