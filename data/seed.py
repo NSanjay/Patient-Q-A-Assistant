@@ -2,8 +2,11 @@ import csv, json, psycopg2, re
 from datetime import datetime
 
 conn = psycopg2.connect(
-    dbname="patientqa", user="admin", password="secret",
-    host="localhost", port="5432"
+    dbname=os.environ.get('DB_NAME', 'patientqa'),
+    user=os.environ.get('DB_USER', 'admin'),
+    password=os.environ.get('DB_PASSWORD', 'secret'),
+    host=os.environ.get('DB_HOST', 'localhost'),
+    port=os.environ.get('DB_PORT', '5432'),
 )
 cur = conn.cursor()
 

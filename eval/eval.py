@@ -498,7 +498,8 @@ def write_insufficient_sheet(wb: Workbook) -> list:
         ws.row_dimensions[i].height = 55
 
         results.append({"id": t["id"], "variant": variant, "fallback": fallback,
-                        "confidence": confidence, "inference": inference, "passed": passed})
+                        "confidence": confidence, "inference": inference, "passed": passed,
+                        "latency": resp.get("_latency_ms", 0)})
         print(f"  {t['id']} — fallback={fallback}, confidence={confidence}")
         time.sleep(TIMEOUT_BETWEEN_TESTS)
 
@@ -543,7 +544,8 @@ def write_clarification_sheet(wb: Workbook) -> list:
         ws.row_dimensions[i].height = 55
 
         results.append({"id": t["id"], "clarification": clarification,
-                        "patients_listed": patients_listed, "passed": passed})
+                        "patients_listed": patients_listed, "passed": passed,
+                        "latency": resp.get("_latency_ms", 0)})
         print(f"  {t['id']} — clarification={clarification}")
         time.sleep(TIMEOUT_BETWEEN_TESTS)
 
@@ -602,7 +604,8 @@ def write_conversation_sheet(wb: Workbook) -> list:
             data_cell(ws.cell(row, 9), turn["expected"], bg)
             ws.row_dimensions[row].height = 55
 
-            results.append({"id": f"{t['id']}_T{turn_num}", "passed": passed})
+            results.append({"id": f"{t['id']}_T{turn_num}", "passed": passed,
+                            "latency": resp.get("_latency_ms", 0)})
             print(f"  {t['id']} Turn {turn_num} — {'PASS' if passed else 'FAIL'}")
             row += 1
             time.sleep(TIMEOUT_BETWEEN_TESTS)
