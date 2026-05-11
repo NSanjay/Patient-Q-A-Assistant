@@ -164,10 +164,9 @@ If no match → safe fallback response.
 
 - **Always use full name** (first + last) for accurate patient resolution
 - **Cohort-wide searches are not supported** - "which patients have diabetes" or "list all patients in Bed A" return safe fallback by design
-- **Follow-up pronouns** ("he", "she") work within a conversation session after a patient is identified
-- **Conversation history is best-effort** - the system maintains context for up to 6 turns. Pronoun resolution ("he", "she") works when the prior turn successfully resolved and answered a patient query. It will not work after fallback responses, clarification requests, or injection blocks since these are excluded from history to prevent context poisoning. When in doubt, re-state the patient's full name. 
-- **Pronoun follow-ups after unanswerable questions** may not resolve correctly. If the system returns a fallback ("I cannot answer..."), the next follow-up using "he/she/they" will lose patient context since fallback turns are excluded from conversation history. Re-state the patient's full name in the follow-up.
-
+- Follow-up pronouns are supported – after a patient has been successfully identified in the current session, follow-up references such as “he”, “she”, or “they” will generally resolve correctly.
+- Conversation memory is limited – the system maintains conversational context on a best-effort basis for up to 6 turns. Pronoun resolution depends on a prior patient query being successfully resolved and answered. Fallback responses, clarification prompts, and injection-blocked messages are intentionally excluded from memory to reduce context poisoning risk. When ambiguity exists, re-state the patient’s full name.
+- Fallback responses reset patient context – if the system returns a fallback response (e.g. “I cannot answer that request”), subsequent follow-up questions without a patient's full name alone may fail to resolve the correct patient. In these cases, include the patient’s full name again in the next query.
 ---
 
 ## A/B Prompt Variants
