@@ -313,9 +313,9 @@ Conversation security was validated end-to-end by CV03: injection blocked mid-co
 
 ## Recommendation
 
-**For safety-critical clinical decisions:** Use Variant A. Faster (2,830ms avg), more predictable, lower token cost, conservative fallback behavior. Never infers - only states what records contain directly.
+**For safety-critical clinical decisions:** Use Variant A. Faster (2,830ms avg), more predictable, lower token cost, conservative fallback behavior. Rarely infers - only states what records contain directly.
 
-**For clinical exploration and research:** Use Variant B. Richer interpretREADME.mdive answers, willing to reason across comorbidities and disclose inferences explicitly. Better for ambiguous questions where partial answers are valuable.
+**For clinical exploration and research:** Use Variant B. Richer interpretive answers, willing to reason across comorbidities and disclose inferences explicitly. Better for ambiguous questions where partial answers are valuable.
 
 **Production deployment recommendation:** Default all users to Variant A. Surface Variant B as an opt-in "Reasoning Mode" with a clear UI indicator that answers may include inferences. Log `inferenceMade` per request for ongoing monitoring and audit.
 
